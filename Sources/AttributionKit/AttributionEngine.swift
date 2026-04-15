@@ -1,21 +1,10 @@
 import Foundation
 
-#if os(iOS)
-import SwiftUI
-#endif
-
 #if os(iOS) && canImport(AdServices)
 import AdServices
 #endif
 
 final class AttributionEngine {
-    #if os(iOS)
-    @AppStorage("ak_attribution_completed") private var attributionCompleted = false
-    @AppStorage("ak_cached_utm_source") private var cachedUTMSource = ""
-    @AppStorage("ak_cached_utm_medium") private var cachedUTMMedium = ""
-    @AppStorage("ak_cached_utm_campaign") private var cachedUTMCampaign = ""
-    @AppStorage("ak_cached_utm_content") private var cachedUTMContent = ""
-    #else
     private var attributionCompleted: Bool {
         get { userDefaults.bool(forKey: Keys.attributionCompleted) }
         set { userDefaults.set(newValue, forKey: Keys.attributionCompleted) }
@@ -42,16 +31,13 @@ final class AttributionEngine {
     }
 
     private let userDefaults: UserDefaults
-    #endif
-
+    
     private let network: AttributionNetwork
     private let stateLock = NSLock()
     private var isRunning = false
 
-    init(network: AttributionNetwork = AttributionNetwork()) {
-        #if !os(iOS)
-        self.userDefaults = .standard
-        #endif
+    init(network: AttributionNetwork = AttributionNetwork(), userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
         self.network = network
     }
 
@@ -68,32 +54,48 @@ final class AttributionEngine {
         isRunning = true
         stateLock.unlock()
 
-        resolveASAAttribution(config: config, attempt: 0) { [weak self] asaResult in
-            guard let self else { return }
-
-            if let asaResult {
-                self.finish(with: asaResult, completion: completion)
-                return
-            }
-
-            self.resolveFingerprintMatch(config: config) { fingerprintResult in
-                if let fingerprintResult {
-                    self.finish(with: fingerprintResult, completion: completion)
+        if normalized(cachedUTMSource) != nil {
+            resolveCachedUTM(config: config) { [weak self] utmResult in
+                guard let self else { return }
+                if let utmResult {
+                    self.finish(with: utmResult, completion: completion)
                     return
                 }
 
-                self.resolveCachedUTM(config: config) { utmResult in
-                    self.finish(with: utmResult ?? AttributionResult(source: "organic"), completion: completion)
-                }
+                self.resolveFallbackAttribution(config: config, completion: completion)
             }
+            return
         }
+
+        resolveFallbackAttribution(config: config, completion: completion)
     }
 
     func cacheUTM(source: String?, medium: String?, campaign: String?, content: String?) {
-        if let source, !source.isEmpty { cachedUTMSource = source }
-        if let medium, !medium.isEmpty { cachedUTMMedium = medium }
-        if let campaign, !campaign.isEmpty { cachedUTMCampaign = campaign }
-        if let content, !content.isEmpty { cachedUTMContent = content }
+        var didCacheNewValue = false
+
+        if let source = normalized(source) {
+            cachedUTMSource = source
+            didCacheNewValue = true
+        }
+
+        if let medium = normalized(medium) {
+            cachedUTMMedium = medium
+            didCacheNewValue = true
+        }
+
+        if let campaign = normalized(campaign) {
+            cachedUTMCampaign = campaign
+            didCacheNewValue = true
+        }
+
+        if let content = normalized(content) {
+            cachedUTMContent = content
+            didCacheNewValue = true
+        }
+
+        if didCacheNewValue {
+            attributionCompleted = false
+        }
     }
 
     private func resolveASAAttribution(
@@ -195,9 +197,33 @@ final class AttributionEngine {
         network.post(path: "/v1/attribution/utm", body: request, config: config) { (result: Result<AttributionNetwork.ResponseEnvelope<AttributionResponse>, Error>) in
             switch result {
             case let .success(response):
+                self.clearCachedUTM()
                 completion(response.body.makeResult(rawPayload: response.rawPayload))
             case .failure:
                 completion(nil)
+            }
+        }
+    }
+
+    private func resolveFallbackAttribution(
+        config: AttributionConfig,
+        completion: @escaping (AttributionResult) -> Void
+    ) {
+        resolveASAAttribution(config: config, attempt: 0) { [weak self] asaResult in
+            guard let self else { return }
+
+            if let asaResult {
+                self.finish(with: asaResult, completion: completion)
+                return
+            }
+
+            self.resolveFingerprintMatch(config: config) { fingerprintResult in
+                if let fingerprintResult {
+                    self.finish(with: fingerprintResult, completion: completion)
+                    return
+                }
+
+                self.finish(with: AttributionResult(source: "organic"), completion: completion)
             }
         }
     }
@@ -222,9 +248,15 @@ final class AttributionEngine {
         }
         return trimmed
     }
+
+    private func clearCachedUTM() {
+        cachedUTMSource = ""
+        cachedUTMMedium = ""
+        cachedUTMCampaign = ""
+        cachedUTMContent = ""
+    }
 }
 
-#if !os(iOS)
 private enum Keys {
     static let attributionCompleted = "ak_attribution_completed"
     static let cachedUTMSource = "ak_cached_utm_source"
@@ -232,7 +264,6 @@ private enum Keys {
     static let cachedUTMCampaign = "ak_cached_utm_campaign"
     static let cachedUTMContent = "ak_cached_utm_content"
 }
-#endif
 
 private struct ASARequest: Encodable {
     let token: String
