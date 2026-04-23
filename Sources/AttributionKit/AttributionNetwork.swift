@@ -26,6 +26,8 @@ final class AttributionNetwork {
         self.decoder = JSONDecoder()
     }
 
+    static let requestTimeout: TimeInterval = 15
+
     func post<Request: Encodable, Response: Decodable>(
         path: String,
         body: Request,
@@ -37,7 +39,7 @@ final class AttributionNetwork {
             return
         }
 
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url, timeoutInterval: AttributionNetwork.requestTimeout)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(config.apiKey, forHTTPHeaderField: "x-api-key")
