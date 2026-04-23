@@ -122,7 +122,8 @@ final class AttributionEngine {
             idfv: network.idfv(),
             appVersion: network.appVersion(),
             systemVersion: network.systemVersion(),
-            deviceModel: network.deviceModel()
+            deviceModel: network.deviceModel(),
+            posthogDistinctId: config.distinctIdProvider?()
         )
 
         let delays: [TimeInterval] = [1, 2, 4]
@@ -160,7 +161,8 @@ final class AttributionEngine {
         let request = MatchRequest(
             idfv: network.idfv(),
             ip: nil,
-            userAgent: network.userAgent(appId: config.appId)
+            userAgent: network.userAgent(appId: config.appId),
+            posthogDistinctId: config.distinctIdProvider?()
         )
 
         network.post(path: "/v1/attribution/match", body: request, config: config) { (result: Result<AttributionNetwork.ResponseEnvelope<AttributionResponse>, Error>) in
@@ -191,7 +193,8 @@ final class AttributionEngine {
             utmSource: source,
             utmMedium: normalized(cachedUTMMedium),
             utmCampaign: normalized(cachedUTMCampaign),
-            utmContent: normalized(cachedUTMContent)
+            utmContent: normalized(cachedUTMContent),
+            posthogDistinctId: config.distinctIdProvider?()
         )
 
         network.post(path: "/v1/attribution/utm", body: request, config: config) { (result: Result<AttributionNetwork.ResponseEnvelope<AttributionResponse>, Error>) in
@@ -293,6 +296,7 @@ private struct ASARequest: Encodable {
     let appVersion: String
     let systemVersion: String
     let deviceModel: String
+    let posthogDistinctId: String?
 
     enum CodingKeys: String, CodingKey {
         case token
@@ -300,6 +304,7 @@ private struct ASARequest: Encodable {
         case appVersion = "app_version"
         case systemVersion = "system_version"
         case deviceModel = "device_model"
+        case posthogDistinctId = "posthog_distinct_id"
     }
 }
 
@@ -307,11 +312,13 @@ private struct MatchRequest: Encodable {
     let idfv: String?
     let ip: String?
     let userAgent: String?
+    let posthogDistinctId: String?
 
     enum CodingKeys: String, CodingKey {
         case idfv
         case ip
         case userAgent = "user_agent"
+        case posthogDistinctId = "posthog_distinct_id"
     }
 }
 
@@ -321,6 +328,7 @@ private struct UTMRequest: Encodable {
     let utmMedium: String?
     let utmCampaign: String?
     let utmContent: String?
+    let posthogDistinctId: String?
 
     enum CodingKeys: String, CodingKey {
         case idfv
@@ -328,6 +336,7 @@ private struct UTMRequest: Encodable {
         case utmMedium = "utm_medium"
         case utmCampaign = "utm_campaign"
         case utmContent = "utm_content"
+        case posthogDistinctId = "posthog_distinct_id"
     }
 }
 

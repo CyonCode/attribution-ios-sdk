@@ -4,4 +4,5 @@ struct AttributionConfig {
     let apiKey: String
     let appId: String
     let baseURL: String
+    let distinctIdProvider: (() -> String?)?
 }

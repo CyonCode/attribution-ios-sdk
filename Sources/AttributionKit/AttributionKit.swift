@@ -12,11 +12,17 @@ public final class AttributionKit {
         self.engine = AttributionEngine()
     }
 
-    public func configure(apiKey: String, appId: String, baseURL: String) {
+    public func configure(
+        apiKey: String,
+        appId: String,
+        baseURL: String,
+        distinctIdProvider: (() -> String?)? = nil
+    ) {
         config = AttributionConfig(
             apiKey: apiKey,
             appId: appId,
-            baseURL: baseURL
+            baseURL: baseURL,
+            distinctIdProvider: distinctIdProvider
         )
     }
 
