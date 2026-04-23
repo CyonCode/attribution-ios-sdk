@@ -103,11 +103,6 @@ final class AttributionEngine {
         attempt: Int,
         completion: @escaping (AttributionResult?) -> Void
     ) {
-        guard #available(iOS 14.3, *) else {
-            completion(nil)
-            return
-        }
-
         #if os(iOS) && canImport(AdServices)
         let token: String
         do {

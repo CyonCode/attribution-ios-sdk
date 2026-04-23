@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "AttributionKit",
-    platforms: [.iOS(.v14)],
+    platforms: [.iOS(.v15)],
     products: [
         .library(name: "AttributionKit", targets: ["AttributionKit"])
     ],
