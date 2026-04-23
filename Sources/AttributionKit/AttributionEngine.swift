@@ -43,7 +43,7 @@ final class AttributionEngine {
 
     func performAttributionIfNeeded(
         config: AttributionConfig,
-        completion: @escaping (AttributionResult) -> Void
+        completion: @escaping (Result<AttributionResult, AttributionError>) -> Void
     ) {
         stateLock.lock()
         if attributionCompleted || isRunning {
@@ -55,14 +55,19 @@ final class AttributionEngine {
         stateLock.unlock()
 
         if normalized(cachedUTMSource) != nil {
-            resolveCachedUTM(config: config) { [weak self] utmResult in
+            resolveCachedUTM(config: config) { [weak self] resolution in
                 guard let self else { return }
-                if let utmResult {
-                    self.finish(with: utmResult, completion: completion)
-                    return
+                switch resolution {
+                case .resolved(let result):
+                    self.finish(with: .success(result), completion: completion)
+                case .uploadFailed(let error):
+                    self.abortWithRetry(
+                        error: .utmUploadFailed(underlying: error),
+                        completion: completion
+                    )
+                case .noCache:
+                    self.resolveFallbackAttribution(config: config, completion: completion)
                 }
-
-                self.resolveFallbackAttribution(config: config, completion: completion)
             }
             return
         }
@@ -174,10 +179,10 @@ final class AttributionEngine {
 
     private func resolveCachedUTM(
         config: AttributionConfig,
-        completion: @escaping (AttributionResult?) -> Void
+        completion: @escaping (UTMResolution) -> Void
     ) {
         guard let source = normalized(cachedUTMSource) else {
-            completion(nil)
+            completion(.noCache)
             return
         }
 
@@ -193,39 +198,42 @@ final class AttributionEngine {
             switch result {
             case let .success(response):
                 self.clearCachedUTM()
-                completion(response.body.makeResult(rawPayload: response.rawPayload))
-            case .failure:
-                completion(nil)
+                completion(.resolved(response.body.makeResult(rawPayload: response.rawPayload)))
+            case .failure(let error):
+                completion(.uploadFailed(error))
             }
         }
     }
 
     private func resolveFallbackAttribution(
         config: AttributionConfig,
-        completion: @escaping (AttributionResult) -> Void
+        completion: @escaping (Result<AttributionResult, AttributionError>) -> Void
     ) {
         resolveASAAttribution(config: config, attempt: 0) { [weak self] asaResult in
             guard let self else { return }
 
             if let asaResult {
-                self.finish(with: asaResult, completion: completion)
+                self.finish(with: .success(asaResult), completion: completion)
                 return
             }
 
             self.resolveFingerprintMatch(config: config) { fingerprintResult in
                 if let fingerprintResult {
-                    self.finish(with: fingerprintResult, completion: completion)
+                    self.finish(with: .success(fingerprintResult), completion: completion)
                     return
                 }
 
-                self.finish(with: AttributionResult(source: "organic"), completion: completion)
+                self.finish(
+                    with: .success(AttributionResult(source: "organic")),
+                    completion: completion
+                )
             }
         }
     }
 
     private func finish(
-        with result: AttributionResult,
-        completion: @escaping (AttributionResult) -> Void
+        with result: Result<AttributionResult, AttributionError>,
+        completion: @escaping (Result<AttributionResult, AttributionError>) -> Void
     ) {
         stateLock.lock()
         attributionCompleted = true
@@ -234,6 +242,19 @@ final class AttributionEngine {
 
         DispatchQueue.main.async {
             completion(result)
+        }
+    }
+
+    private func abortWithRetry(
+        error: AttributionError,
+        completion: @escaping (Result<AttributionResult, AttributionError>) -> Void
+    ) {
+        stateLock.lock()
+        isRunning = false
+        stateLock.unlock()
+
+        DispatchQueue.main.async {
+            completion(.failure(error))
         }
     }
 
@@ -250,6 +271,12 @@ final class AttributionEngine {
         cachedUTMCampaign = ""
         cachedUTMContent = ""
     }
+}
+
+private enum UTMResolution {
+    case resolved(AttributionResult)
+    case uploadFailed(Error)
+    case noCache
 }
 
 private enum Keys {

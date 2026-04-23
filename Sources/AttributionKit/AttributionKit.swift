@@ -25,7 +25,12 @@ public final class AttributionKit {
 
         engine.performAttributionIfNeeded(config: config) { [weak self] result in
             guard let self else { return }
-            self.delegate?.attribution(self, didComplete: result)
+            switch result {
+            case .success(let attribution):
+                self.delegate?.attribution(self, didComplete: attribution)
+            case .failure(let error):
+                self.delegate?.attribution(self, didFailWith: error)
+            }
         }
     }
 
