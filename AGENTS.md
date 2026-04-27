@@ -27,6 +27,7 @@ ios-sdk/
 | Change API contract | `AttributionNetwork.swift` | Request/response encoding |
 | Modify public API | `AttributionKit.swift` | Singleton facade; `configure(..., distinctIdProvider:)` accepts a closure so host app can inject e.g. idfv or PostHog distinctId for server-side identify |
 | Add callback data | `AttributionResult.swift` | Public result model |
+| User-facing integration guide | `README.md` + `Examples/RevenueIntegration.swift` | Qonversion revenue integration walkthrough; SDK ships with a single chosen provider example (Qonversion), Adapty kept as commented-out alternative |
 
 ## CONVENTIONS
 
