@@ -1,4 +1,4 @@
-# IOS-SDK — AttributionKit
+# AttributionKit
 
 ## OVERVIEW
 
@@ -7,7 +7,7 @@ Swift Package for iOS 15+. Resolves install attribution source via a 3-step wate
 ## STRUCTURE
 
 ```
-ios-sdk/
+AttributionKit/
 ├── Package.swift
 ├── Sources/AttributionKit/
 │   ├── AttributionKit.swift      # Public API — singleton, configure(), performAttributionIfNeeded()

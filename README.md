@@ -13,7 +13,7 @@ Lightweight iOS attribution SDK that resolves install source via a 3-step waterf
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/CyonCode/attribution-ios-sdk", from: "1.0.0"),
+    .package(url: "https://github.com/CyonCode/AttributionKit", from: "1.0.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: ["AttributionKit"]),
@@ -152,7 +152,7 @@ If `attribution_source === 'unknown'`, the IDFV alignment didn't fire before pur
 ## File map
 
 ```
-ios-sdk/
+AttributionKit/
 ├── Sources/AttributionKit/         # SDK source
 ├── Examples/
 │   └── RevenueIntegration.swift    # Copy-pasteable reference integration
